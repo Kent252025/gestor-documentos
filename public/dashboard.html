@@ -493,6 +493,7 @@
 
         .document-content {
             flex: 1;
+            min-width: 0;
         }
 
         .document-title-row {
@@ -834,6 +835,206 @@
                 justify-content: center;
             }
         }
+
+        /* ============================================
+           SISTEMA DE OVERLAYS (substitui alert/confirm/prompt)
+           ============================================ */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 360px;
+        }
+
+        .toast {
+            background: white;
+            border-radius: 12px;
+            padding: 14px 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 14px;
+            color: #333;
+            border-left: 4px solid #2a5298;
+            animation: toast-in 0.25s ease-out;
+        }
+
+        .toast.success { border-left-color: #2e7d32; }
+        .toast.error { border-left-color: #dc3545; }
+        .toast.info { border-left-color: #0050b3; }
+
+        .toast-icon { font-size: 18px; line-height: 1; }
+        .toast-msg { flex: 1; line-height: 1.4; }
+        .toast-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #999;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .toast.leaving { animation: toast-out 0.2s ease-in forwards; }
+
+        @keyframes toast-in {
+            from { transform: translateX(20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes toast-out {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(20px); opacity: 0; }
+        }
+
+        .overlay-backdrop {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.55);
+            z-index: 2500;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            backdrop-filter: blur(2px);
+        }
+
+        .overlay-backdrop.show {
+            display: flex;
+            animation: overlay-fade 0.15s ease-out;
+        }
+
+        @keyframes overlay-fade {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .overlay-box {
+            background: white;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            animation: overlay-pop 0.2s ease-out;
+        }
+
+        @keyframes overlay-pop {
+            from { transform: translateY(10px) scale(0.98); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+
+        .overlay-header {
+            padding: 20px 22px 0;
+        }
+
+        .overlay-icon-badge {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            margin-bottom: 12px;
+            background: #e8f0fe;
+        }
+
+        .overlay-icon-badge.danger { background: #fee2e2; }
+        .overlay-icon-badge.warning { background: #fff3e0; }
+
+        .overlay-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #1e3c72;
+            margin-bottom: 6px;
+        }
+
+        .overlay-message {
+            font-size: 14px;
+            color: #555;
+            line-height: 1.5;
+        }
+
+        .overlay-body {
+            padding: 16px 22px 0;
+        }
+
+        .overlay-body input, .overlay-body textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            margin-top: 6px;
+        }
+
+        .overlay-body input:focus, .overlay-body textarea:focus {
+            outline: none;
+            border-color: #2a5298;
+        }
+
+        .overlay-field-label {
+            font-size: 12px;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .overlay-field { margin-bottom: 14px; }
+
+        .overlay-error {
+            font-size: 12px;
+            color: #dc3545;
+            margin-top: 6px;
+            display: none;
+        }
+
+        .overlay-error.show { display: block; }
+
+        .overlay-footer {
+            padding: 18px 22px 22px;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .overlay-btn {
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .overlay-btn:active { transform: scale(0.97); }
+
+        .overlay-btn-secondary {
+            background: #f0f2f5;
+            color: #444;
+        }
+
+        .overlay-btn-secondary:hover { background: #e4e6eb; }
+
+        .overlay-btn-primary {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+        }
+
+        .overlay-btn-primary:hover { filter: brightness(1.08); }
+
+        .overlay-btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .overlay-btn-danger:hover { background: #c82333; }
     </style>
 </head>
 <body>
@@ -881,7 +1082,7 @@
 
         <div class="documents-card">
             <h2>📋 Meus documentos</h2>
-            
+
             <div class="filters-bar">
                 <div class="search-box">
                     <input type="text" id="searchInput" placeholder="🔍 Pesquisar por nome...">
@@ -899,7 +1100,6 @@
                     <button class="filter-btn" data-filter="compressed">📦 Compactados</button>
                     <button class="filter-btn" data-filter="engineering">🔧 Engenharia</button>
                     <button class="filter-btn" data-filter="text">📄 TXT</button>
-
                 </div>
                 <button id="filterFavBtn" class="filter-fav-btn">⭐ Favoritos</button>
                 <button id="filterDuplicateBtn" class="filter-duplicate-btn">🔄 Duplicados</button>
@@ -929,7 +1129,7 @@
                     <label for="selectAllCheckbox">Selecionar todos</label>
                 </div>
             </div>
-            
+
             <div id="bulkActions" class="bulk-actions">
                 <div class="bulk-info" id="bulkInfo">0 documentos selecionados</div>
                 <div class="bulk-buttons">
@@ -938,9 +1138,9 @@
                     <button id="bulkClearBtn" class="bulk-clear">Cancelar</button>
                 </div>
             </div>
-            
+
             <div class="stats" id="stats"></div>
-            
+
             <div id="documentsList">
                 <div class="loading-state">⏳ Carregando documentos...</div>
             </div>
@@ -980,8 +1180,8 @@
                 </div>
                 <div id="passwordMessage" class="message" style="display: none;"></div>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button id="savePasswordBtn" style="flex: 1; background: #2a5298;">Salvar</button>
-                    <button id="cancelPasswordBtn" style="flex: 1; background: #6c757d;">Cancelar</button>
+                    <button id="savePasswordBtn" style="flex: 1; background: #2a5298; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer;">Salvar</button>
+                    <button id="cancelPasswordBtn" style="flex: 1; background: #6c757d; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer;">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -1005,6 +1205,13 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- ============ SISTEMA DE OVERLAYS (toasts + confirm + prompt) ============ -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="overlay-backdrop" id="overlayBackdrop">
+        <div class="overlay-box" id="overlayBox"></div>
     </div>
 
     <footer>
@@ -1035,6 +1242,156 @@
 
         document.getElementById('userEmail').textContent = currentUserEmail;
 
+        // ==================== SISTEMA DE OVERLAYS ====================
+        // Substitui alert(), confirm() e prompt() nativos do navegador
+        // por overlays consistentes com o design da aplicação.
+
+        const toastContainer = document.getElementById('toastContainer');
+        function showToast(message, type = 'info', duration = 4500) {
+            const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+            const el = document.createElement('div');
+            el.className = `toast ${type}`;
+            el.innerHTML = `
+                <span class="toast-icon">${icons[type] || 'ℹ️'}</span>
+                <span class="toast-msg"></span>
+                <button class="toast-close" aria-label="Fechar">&times;</button>
+            `;
+            el.querySelector('.toast-msg').textContent = message;
+            const remove = () => {
+                el.classList.add('leaving');
+                setTimeout(() => el.remove(), 200);
+            };
+            el.querySelector('.toast-close').addEventListener('click', remove);
+            toastContainer.appendChild(el);
+            if (duration > 0) setTimeout(remove, duration);
+            return el;
+        }
+
+        const overlayBackdrop = document.getElementById('overlayBackdrop');
+        const overlayBox = document.getElementById('overlayBox');
+        let overlayActiveResolve = null;
+
+        function closeOverlay(result) {
+            overlayBackdrop.classList.remove('show');
+            overlayBox.innerHTML = '';
+            document.removeEventListener('keydown', overlayKeydownHandler);
+            if (overlayActiveResolve) {
+                const resolve = overlayActiveResolve;
+                overlayActiveResolve = null;
+                resolve(result);
+            }
+        }
+
+        function overlayKeydownHandler(e) {
+            if (e.key === 'Escape') closeOverlay(null);
+        }
+
+        // showConfirm({title, message, confirmText, cancelText, danger}) -> Promise<boolean>
+        function showConfirm({ title, message, confirmText = 'Confirmar', cancelText = 'Cancelar', danger = false, icon = '❓' }) {
+            return new Promise((resolve) => {
+                overlayActiveResolve = resolve;
+                overlayBox.innerHTML = `
+                    <div class="overlay-header">
+                        <div class="overlay-icon-badge ${danger ? 'danger' : 'warning'}">${icon}</div>
+                        <div class="overlay-title"></div>
+                        <div class="overlay-message"></div>
+                    </div>
+                    <div class="overlay-footer">
+                        <button class="overlay-btn overlay-btn-secondary" data-action="cancel">${cancelText}</button>
+                        <button class="overlay-btn ${danger ? 'overlay-btn-danger' : 'overlay-btn-primary'}" data-action="confirm">${confirmText}</button>
+                    </div>
+                `;
+                overlayBox.querySelector('.overlay-title').textContent = title;
+                overlayBox.querySelector('.overlay-message').textContent = message;
+                overlayBox.querySelector('[data-action="cancel"]').onclick = () => closeOverlay(false);
+                overlayBox.querySelector('[data-action="confirm"]').onclick = () => closeOverlay(true);
+                overlayBackdrop.classList.add('show');
+                document.addEventListener('keydown', overlayKeydownHandler);
+                overlayBox.querySelector('[data-action="confirm"]').focus();
+            });
+        }
+
+        // showPrompt({title, message, fields}) -> Promise<{values}|null>
+        // fields: [{ id, label, type, placeholder, value, validate }]
+        function showPromptForm({ title, message = '', fields, confirmText = 'Guardar', cancelText = 'Cancelar', icon = '✏️', danger = false }) {
+            return new Promise((resolve) => {
+                overlayActiveResolve = resolve;
+                const fieldsHtml = fields.map(f => `
+                    <div class="overlay-field">
+                        <div class="overlay-field-label">${f.label}</div>
+                        ${f.type === 'textarea'
+                            ? `<textarea id="field-${f.id}" rows="3" placeholder="${f.placeholder || ''}"></textarea>`
+                            : `<input id="field-${f.id}" type="${f.type || 'text'}" placeholder="${f.placeholder || ''}">`
+                        }
+                        <div class="overlay-error" id="error-${f.id}"></div>
+                    </div>
+                `).join('');
+
+                overlayBox.innerHTML = `
+                    <div class="overlay-header">
+                        <div class="overlay-icon-badge ${danger ? 'danger' : ''}">${icon}</div>
+                        <div class="overlay-title"></div>
+                        ${message ? '<div class="overlay-message"></div>' : ''}
+                    </div>
+                    <div class="overlay-body">${fieldsHtml}</div>
+                    <div class="overlay-footer">
+                        <button class="overlay-btn overlay-btn-secondary" data-action="cancel">${cancelText}</button>
+                        <button class="overlay-btn ${danger ? 'overlay-btn-danger' : 'overlay-btn-primary'}" data-action="confirm">${confirmText}</button>
+                    </div>
+                `;
+                overlayBox.querySelector('.overlay-title').textContent = title;
+                if (message) overlayBox.querySelector('.overlay-message').textContent = message;
+
+                fields.forEach(f => {
+                    const input = overlayBox.querySelector(`#field-${f.id}`);
+                    if (f.value !== undefined && f.value !== null) input.value = f.value;
+                });
+
+                const firstInput = overlayBox.querySelector('.overlay-body input, .overlay-body textarea');
+                if (firstInput) setTimeout(() => { firstInput.focus(); firstInput.select && firstInput.select(); }, 30);
+
+                function trySubmit() {
+                    const values = {};
+                    let valid = true;
+                    fields.forEach(f => {
+                        const input = overlayBox.querySelector(`#field-${f.id}`);
+                        const errorEl = overlayBox.querySelector(`#error-${f.id}`);
+                        const val = input.value;
+                        let errorMsg = '';
+                        if (f.validate) errorMsg = f.validate(val) || '';
+                        if (errorMsg) {
+                            valid = false;
+                            errorEl.textContent = errorMsg;
+                            errorEl.classList.add('show');
+                        } else {
+                            errorEl.classList.remove('show');
+                        }
+                        values[f.id] = val;
+                    });
+                    if (!valid) return;
+                    closeOverlay(values);
+                }
+
+                overlayBox.querySelectorAll('.overlay-body input, .overlay-body textarea').forEach(inputEl => {
+                    inputEl.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' && inputEl.tagName !== 'TEXTAREA') {
+                            e.preventDefault();
+                            trySubmit();
+                        }
+                    });
+                });
+
+                overlayBox.querySelector('[data-action="cancel"]').onclick = () => closeOverlay(null);
+                overlayBox.querySelector('[data-action="confirm"]').onclick = trySubmit;
+                overlayBackdrop.classList.add('show');
+                document.addEventListener('keydown', overlayKeydownHandler);
+            });
+        }
+
+        overlayBackdrop.addEventListener('click', (e) => {
+            if (e.target === overlayBackdrop) closeOverlay(null);
+        });
+
         document.getElementById('logoutBtn').addEventListener('click', () => {
             localStorage.removeItem('token');
             localStorage.removeItem('userEmail');
@@ -1045,11 +1402,10 @@
         // ==================== FUNÇÃO PARA DETECTAR TIPO DE ARQUIVO ====================
         function detectFileType(filename) {
             const ext = filename.split('.').pop().toLowerCase();
-            
+
             if (ext === 'pdf') return 'pdf';
             if (['doc', 'docx'].includes(ext)) return 'word';
             if (['ppt', 'pptx'].includes(ext)) return 'powerpoint';
-            // Código (MATLAB .m e .mlx incluídos)
             if (['c', 'cpp', 'h', 'hpp', 'py', 'js', 'ts', 'java', 'php', 'rb', 'go', 'rs', 'html', 'css', 'json', 'xml', 'sql', 'sh', 'bat', 'm', 'mlx'].includes(ext)) return 'code';
             if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico'].includes(ext)) return 'image';
             if (['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac'].includes(ext)) return 'audio';
@@ -1058,10 +1414,9 @@
             if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2'].includes(ext)) return 'compressed';
             if (['epub', 'mobi', 'azw', 'azw3'].includes(ext)) return 'ebook';
             if (['psd', 'ai', 'eps', 'cdr', 'dwg', 'dxf', 'skp'].includes(ext)) return 'design';
-            // Engenharia
             if (['circ', 'pcb', 'sch', 'brd', 'gerber', 'gbr', 'stp', 'step', 'iges', 'igs', 'stl', '3mf', 'obj', 'blend', 'kicad_pcb', 'kicad_sch', 'odg', 'vsd'].includes(ext)) return 'engineering';
             if (['txt', 'md', 'rtf', 'odt'].includes(ext)) return 'text';
-            
+
             return 'outro';
         }
 
@@ -1079,7 +1434,7 @@
         function getDuplicateIds() {
             const seen = new Map();
             const duplicateIds = new Set();
-            
+
             allDocuments.forEach(doc => {
                 const key = `${doc.original_name}|${doc.file_size}`;
                 if (seen.has(key)) {
@@ -1088,7 +1443,7 @@
                     seen.set(key, doc.id);
                 }
             });
-            
+
             return duplicateIds;
         }
 
@@ -1096,7 +1451,7 @@
         function updateQueueDisplay() {
             const container = document.getElementById('queueContainer');
             const queueInfo = document.getElementById('queueInfo');
-            
+
             if (pendingFiles.length > 0) {
                 container.style.display = 'block';
                 const totalSize = pendingFiles.reduce((sum, file) => sum + file.size, 0);
@@ -1124,11 +1479,11 @@
                 clearTimeout(uploadStatusTimeout);
                 uploadStatusTimeout = null;
             }
-            
+
             uploadStatus.textContent = msg;
             uploadStatus.className = `upload-status ${tipo}`;
             uploadStatus.style.display = 'block';
-            
+
             if (isFinal) {
                 uploadStatusTimeout = setTimeout(() => {
                     uploadStatus.style.display = 'none';
@@ -1162,33 +1517,33 @@
 
         async function processQueue() {
             if (pendingFiles.length === 0) return;
-            
+
             const filesToUpload = [...pendingFiles];
             clearQueue();
-            
+
             uploadsInProgress = true;
-            
+
             const tagsInput = document.getElementById('uploadTags').value;
             const tags = tagsInput.split(',').map(t => t.trim()).filter(t => t);
-            
+
             if (tags.length > 0) {
                 tagsHint.innerHTML = `🏷️ A aplicar ${tags.length} tag(s): ${tags.join(', ')}`;
                 tagsHint.className = 'tags-hint';
             } else {
                 tagsHint.innerHTML = '';
             }
-            
+
             let successCount = 0;
             let errorCount = 0;
             let errorDetails = [];
             let total = filesToUpload.length;
-            
+
             showUploadStatus(`⏳ A preparar envio de ${total} ficheiro(s)...`, 'loading');
-            
+
             for (let i = 0; i < filesToUpload.length; i++) {
                 const file = filesToUpload[i];
                 const ext = '.' + file.name.split('.').pop().toLowerCase();
-                
+
                 if (!allowedExtensions.includes(ext)) {
                     errorCount++;
                     errorDetails.push(`"${file.name}" - formato não suportado (${ext})`);
@@ -1228,12 +1583,13 @@
                     errorDetails.push(`"${file.name}" - erro de conexão: ${error.message || 'falha na rede'}`);
                     showUploadStatus(`❌ Ficheiro ${i+1}/${total}: "${file.name}" - erro de conexão`, 'loading');
                 }
-                
+
                 await new Promise(r => setTimeout(r, 100));
             }
-            
+
             if (successCount > 0 && errorCount === 0) {
                 showUploadStatus(`✅ ${successCount} documento(s) enviado(s) com sucesso!`, 'success', true);
+                showToast(`${successCount} documento(s) enviado(s) com sucesso!`, 'success');
                 if (tags.length > 0) {
                     tagsHint.innerHTML = `✅ Tags "${tags.join(', ')}" aplicadas a ${successCount} documento(s)!`;
                     tagsHint.className = 'tags-hint success';
@@ -1242,6 +1598,7 @@
                 document.getElementById('uploadTags').value = '';
             } else if (successCount > 0 && errorCount > 0) {
                 showUploadStatus(`⚠️ Parcial: ${successCount} ok, ${errorCount} falhou. Ver detalhes abaixo.`, 'loading', true);
+                showToast(`${successCount} ok, ${errorCount} falharam`, 'info');
                 if (errorDetails.length > 0) {
                     tagsHint.innerHTML = `❌ Falhas: ${errorDetails.slice(0, 3).join(', ')}${errorDetails.length > 3 ? '...' : ''}`;
                     tagsHint.className = 'tags-hint error';
@@ -1256,6 +1613,7 @@
                     errorMsg += `Verifique a ligação à internet e tente novamente.`;
                 }
                 showUploadStatus(errorMsg, 'error', true);
+                showToast('Nenhum documento foi enviado', 'error');
                 if (tags.length > 0) {
                     tagsHint.innerHTML = `⚠️ Nenhum documento enviado. As tags não foram aplicadas.`;
                     tagsHint.className = 'tags-hint error';
@@ -1343,7 +1701,7 @@
             filterAndRenderDocuments();
         });
 
-        window.toggleFavorite = async (id, currentState) => {
+        async function toggleFavorite(id, currentState) {
             const newState = !currentState;
             try {
                 const response = await fetch(`${API_URL}/documents/${id}/favorite`, {
@@ -1358,21 +1716,21 @@
                 if (data.sucesso) {
                     loadDocuments();
                 } else {
-                    alert(data.erro || 'Erro ao atualizar favorito');
+                    showToast(data.erro || 'Erro ao atualizar favorito', 'error');
                 }
             } catch (error) {
                 console.error(error);
-                alert('Erro de conexão');
+                showToast('Erro de conexão', 'error');
             }
-        };
+        }
 
         function sortDocuments(docs) {
             const sorted = [...docs];
             switch(currentSort) {
                 case 'name_asc': return sorted.sort((a, b) => a.original_name.localeCompare(b.original_name));
                 case 'name_desc': return sorted.sort((a, b) => b.original_name.localeCompare(a.original_name));
-                case 'date_asc': return sorted.sort((a, b) => new Date(a.uploaded_at) - new Date(b.uploaded_at));
-                case 'date_desc': return sorted.sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at));
+                case 'date_asc': return sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                case 'date_desc': return sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 case 'size_asc': return sorted.sort((a, b) => a.file_size - b.file_size);
                 case 'size_desc': return sorted.sort((a, b) => b.file_size - a.file_size);
                 case 'type_asc': return sorted.sort((a, b) => a.file_type.localeCompare(b.file_type));
@@ -1404,37 +1762,44 @@
 
         function getCurrentDisplayedDocuments() {
             let filtered = [...allDocuments];
-            
+
             if (currentFilter !== 'todos') {
                 filtered = filtered.filter(doc => doc.file_type === currentFilter);
             }
-            
+
             if (showFavoritesOnly) {
                 filtered = filtered.filter(doc => doc.favorite === 1);
             }
-            
+
             if (currentTagFilter) {
                 filtered = filtered.filter(doc => doc.tags && doc.tags.includes(currentTagFilter));
             }
-            
+
             if (currentSearch) {
                 filtered = filtered.filter(doc => doc.original_name.toLowerCase().includes(currentSearch));
             }
-            
+
             if (showDuplicatesOnly) {
                 const duplicateIds = getDuplicateIds();
                 filtered = filtered.filter(doc => duplicateIds.has(doc.id));
             }
-            
+
             return filtered;
         }
 
         selectAllCheckbox.addEventListener('change', (e) => selectAll(e.target.checked));
         bulkClearBtn.addEventListener('click', () => { selectedDocuments.clear(); updateBulkActions(); filterAndRenderDocuments(); });
-        
+
         bulkDeleteBtn.addEventListener('click', async () => {
             if (selectedDocuments.size === 0) return;
-            if (!confirm(`⚠️ Tem certeza que deseja apagar ${selectedDocuments.size} documento(s)?`)) return;
+            const ok = await showConfirm({
+                title: 'Apagar documentos selecionados',
+                message: `Tem a certeza que deseja apagar ${selectedDocuments.size} documento(s)? Esta ação não pode ser desfeita.`,
+                confirmText: 'Apagar',
+                danger: true,
+                icon: '🗑️'
+            });
+            if (!ok) return;
             let successCount = 0;
             for (const id of selectedDocuments) {
                 try {
@@ -1443,7 +1808,7 @@
                     if (data.sucesso) successCount++;
                 } catch (error) { console.error(error); }
             }
-            alert(`✅ ${successCount} documento(s) apagado(s) com sucesso!`);
+            showToast(`${successCount} documento(s) apagado(s) com sucesso!`, 'success');
             selectedDocuments.clear();
             updateBulkActions();
             loadDocuments();
@@ -1451,9 +1816,15 @@
 
         bulkTagBtn.addEventListener('click', async () => {
             if (selectedDocuments.size === 0) return;
-            const newTagsStr = prompt('✏️ Adicionar tags (separadas por vírgula):', '');
-            if (!newTagsStr) return;
-            const newTags = newTagsStr.split(',').map(t => t.trim()).filter(t => t);
+            const result = await showPromptForm({
+                title: 'Adicionar tags',
+                message: `Estas tags serão adicionadas a ${selectedDocuments.size} documento(s) selecionado(s).`,
+                icon: '🏷️',
+                confirmText: 'Adicionar',
+                fields: [{ id: 'tags', label: 'Tags (separadas por vírgula)', placeholder: 'ex: trabalho, urgente' }]
+            });
+            if (!result || !result.tags.trim()) return;
+            const newTags = result.tags.split(',').map(t => t.trim()).filter(t => t);
             let successCount = 0;
             for (const id of selectedDocuments) {
                 const doc = allDocuments.find(d => d.id === id);
@@ -1469,7 +1840,7 @@
                     if (data.sucesso) successCount++;
                 } catch (error) { console.error(error); }
             }
-            alert(`✅ Tags adicionadas a ${successCount} documento(s)!`);
+            showToast(`Tags adicionadas a ${successCount} documento(s)!`, 'success');
             selectedDocuments.clear();
             updateBulkActions();
             loadDocuments();
@@ -1507,46 +1878,46 @@
             updateTagFilter(allDocuments);
         }
 
-      function updateStats(docs) {
-    const pdfCount = docs.filter(d => d.file_type === 'pdf').length;
-    const wordCount = docs.filter(d => d.file_type === 'word').length;
-    const pptCount = docs.filter(d => d.file_type === 'powerpoint').length;
-    const imageCount = docs.filter(d => d.file_type === 'image').length;
-    const codeCount = docs.filter(d => d.file_type === 'code').length;
-    const audioCount = docs.filter(d => d.file_type === 'audio').length;
-    const videoCount = docs.filter(d => d.file_type === 'video').length;
-    const engineeringCount = docs.filter(d => d.file_type === 'engineering').length;
-    const textCount = docs.filter(d => d.file_type === 'text').length;
-    const favCount = docs.filter(d => d.favorite === 1).length;  // <-- LINHA FALTANDO!
-    const outrosCount = docs.filter(d => !['pdf', 'word', 'powerpoint', 'image', 'code', 'audio', 'video', 'engineering', 'text'].includes(d.file_type)).length;
-    
-    const seen = new Map();
-    let duplicatesCount = 0;
-    
-    docs.forEach(doc => {
-        const key = `${doc.original_name}|${doc.file_size}`;
-        if (seen.has(key)) {
-            duplicatesCount++;
-        } else {
-            seen.set(key, doc.id);
+        function updateStats(docs) {
+            const pdfCount = docs.filter(d => d.file_type === 'pdf').length;
+            const wordCount = docs.filter(d => d.file_type === 'word').length;
+            const pptCount = docs.filter(d => d.file_type === 'powerpoint').length;
+            const imageCount = docs.filter(d => d.file_type === 'image').length;
+            const codeCount = docs.filter(d => d.file_type === 'code').length;
+            const audioCount = docs.filter(d => d.file_type === 'audio').length;
+            const videoCount = docs.filter(d => d.file_type === 'video').length;
+            const engineeringCount = docs.filter(d => d.file_type === 'engineering').length;
+            const textCount = docs.filter(d => d.file_type === 'text').length;
+            const favCount = docs.filter(d => d.favorite === 1).length;
+            const outrosCount = docs.filter(d => !['pdf', 'word', 'powerpoint', 'image', 'code', 'audio', 'video', 'engineering', 'text'].includes(d.file_type)).length;
+
+            const seen = new Map();
+            let duplicatesCount = 0;
+
+            docs.forEach(doc => {
+                const key = `${doc.original_name}|${doc.file_size}`;
+                if (seen.has(key)) {
+                    duplicatesCount++;
+                } else {
+                    seen.set(key, doc.id);
+                }
+            });
+
+            document.getElementById('stats').innerHTML = `
+                <div class="stat-item"><span class="stat-icon">📄</span> PDF: ${pdfCount}</div>
+                <div class="stat-item"><span class="stat-icon">📝</span> Word: ${wordCount}</div>
+                <div class="stat-item"><span class="stat-icon">📊</span> PowerPoint: ${pptCount}</div>
+                <div class="stat-item"><span class="stat-icon">🖼️</span> Imagens: ${imageCount}</div>
+                <div class="stat-item"><span class="stat-icon">💻</span> Código: ${codeCount}</div>
+                <div class="stat-item"><span class="stat-icon">🎵</span> Áudio: ${audioCount}</div>
+                <div class="stat-item"><span class="stat-icon">🎬</span> Vídeo: ${videoCount}</div>
+                <div class="stat-item"><span class="stat-icon">🔧</span> Engenharia: ${engineeringCount}</div>
+                <div class="stat-item"><span class="stat-icon">📄</span> TXT: ${textCount}</div>
+                <div class="stat-item"><span class="stat-icon stat-fav">⭐</span> Favoritos: ${favCount}</div>
+                <div class="stat-item"><span class="stat-icon" style="color: #dc3545;">🔄</span> Duplicados: ${duplicatesCount}</div>
+                <div class="stat-item"><span class="stat-icon">📁</span> Total: ${docs.length}</div>
+            `;
         }
-    });
-    
-    document.getElementById('stats').innerHTML = `
-        <div class="stat-item"><span class="stat-icon">📄</span> PDF: ${pdfCount}</div>
-        <div class="stat-item"><span class="stat-icon">📝</span> Word: ${wordCount}</div>
-        <div class="stat-item"><span class="stat-icon">📊</span> PowerPoint: ${pptCount}</div>
-        <div class="stat-item"><span class="stat-icon">🖼️</span> Imagens: ${imageCount}</div>
-        <div class="stat-item"><span class="stat-icon">💻</span> Código: ${codeCount}</div>
-        <div class="stat-item"><span class="stat-icon">🎵</span> Áudio: ${audioCount}</div>
-        <div class="stat-item"><span class="stat-icon">🎬</span> Vídeo: ${videoCount}</div>
-        <div class="stat-item"><span class="stat-icon">🔧</span> Engenharia: ${engineeringCount}</div>
-        <div class="stat-item"><span class="stat-icon">📄</span> TXT: ${textCount}</div>
-        <div class="stat-item"><span class="stat-icon stat-fav">⭐</span> Favoritos: ${favCount}</div>
-        <div class="stat-item"><span class="stat-icon" style="color: #dc3545;">🔄</span> Duplicados: ${duplicatesCount}</div>
-        <div class="stat-item"><span class="stat-icon">📁</span> Total: ${docs.length}</div>
-    `;
-}
 
         function updateTagFilter(docs) {
             const allTags = new Set();
@@ -1556,82 +1927,127 @@
             else if (currentTagFilter) { currentTagFilter = ''; tagFilterSelect.value = ''; }
         }
 
-        window.renameDocument = async (id, currentName) => {
-            const newName = prompt('✏️ Novo nome do documento:', currentName);
-            if (!newName || newName === currentName) return;
-            const ext = currentName.split('.').pop();
-            let newNameWithExt = newName;
-            if (!newName.toLowerCase().endsWith(`.${ext.toLowerCase()}`)) newNameWithExt = `${newName}.${ext}`;
+        // ==================== AÇÕES SOBRE DOCUMENTOS ====================
+        // NOTA IMPORTANTE: as ações abaixo (renomear, apagar, tags, partilhar,
+        // ver, baixar, favorito) já NÃO são chamadas via `onclick="..."` com o
+        // nome do ficheiro interpolado no HTML. Esse era o motivo do "apagador"
+        // (e de outros botões) ficarem quebrados sempre que um nome de ficheiro
+        // continha aspas simples ou duplas — a string do onclick quebrava a meio.
+        // Além de ser um bug, era uma falha de segurança (XSS armazenado).
+        // Agora usamos "event delegation": os botões só guardam o id do
+        // documento em data-id/data-action, e o nome/tags são lidos de
+        // `allDocuments` (já em memória), nunca do HTML.
+
+        async function renameDocument(id, currentName) {
+            const ext = currentName.includes('.') ? currentName.split('.').pop() : '';
+            const result = await showPromptForm({
+                title: 'Renomear documento',
+                icon: '✏️',
+                confirmText: 'Renomear',
+                fields: [{
+                    id: 'name',
+                    label: 'Novo nome',
+                    value: currentName,
+                    validate: (v) => !v.trim() ? 'O nome não pode ficar vazio' : null
+                }]
+            });
+            if (!result) return;
+            let newNameWithExt = result.name.trim();
+            if (ext && !newNameWithExt.toLowerCase().endsWith(`.${ext.toLowerCase()}`)) {
+                newNameWithExt = `${newNameWithExt}.${ext}`;
+            }
+            if (newNameWithExt === currentName) return;
             try {
                 const response = await fetch(`${API_URL}/documents/${id}/rename`, { method: 'PUT', headers: { 'Authorization': `Bearer ${currentToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ newName: newNameWithExt }) });
                 const data = await response.json();
-                if (data.sucesso) loadDocuments();
-                else alert(data.erro || 'Erro ao renomear');
-            } catch (error) { console.error(error); alert('Erro de conexão'); }
-        };
+                if (data.sucesso) { showToast('Documento renomeado com sucesso', 'success'); loadDocuments(); }
+                else showToast(data.erro || 'Erro ao renomear', 'error');
+            } catch (error) { console.error(error); showToast('Erro de conexão', 'error'); }
+        }
 
-        window.editTags = async (id, currentTags) => {
+        async function editTags(id, currentTags) {
             const tagsStr = currentTags && currentTags.length ? currentTags.join(', ') : '';
-            const newTagsStr = prompt('✏️ Editar tags (separadas por vírgula):', tagsStr);
-            if (newTagsStr === null) return;
-            const newTags = newTagsStr.split(',').map(t => t.trim()).filter(t => t);
+            const result = await showPromptForm({
+                title: 'Editar tags',
+                icon: '🏷️',
+                confirmText: 'Guardar',
+                fields: [{ id: 'tags', label: 'Tags (separadas por vírgula)', value: tagsStr, placeholder: 'ex: trabalho, urgente' }]
+            });
+            if (!result) return;
+            const newTags = result.tags.split(',').map(t => t.trim()).filter(t => t);
             try {
                 const response = await fetch(`${API_URL}/documents/${id}/tags`, { method: 'PUT', headers: { 'Authorization': `Bearer ${currentToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ tags: newTags }) });
                 const data = await response.json();
-                if (data.sucesso) loadDocuments();
-                else alert(data.erro || 'Erro ao atualizar tags');
-            } catch (error) { console.error(error); alert('Erro de conexão'); }
-        };
+                if (data.sucesso) { showToast('Tags atualizadas com sucesso', 'success'); loadDocuments(); }
+                else showToast(data.erro || 'Erro ao atualizar tags', 'error');
+            } catch (error) { console.error(error); showToast('Erro de conexão', 'error'); }
+        }
 
-        window.filterByTag = (tag) => { currentTagFilter = tag; tagFilterSelect.value = tag; filterAndRenderDocuments(); };
+        function filterByTag(tag) { currentTagFilter = tag; tagFilterSelect.value = tag; filterAndRenderDocuments(); }
 
         document.getElementById('deleteAllBtn').addEventListener('click', async () => {
-            if (!confirm('⚠️ Tem certeza que deseja apagar TODOS os seus documentos? Esta ação não pode ser desfeita.')) return;
+            const ok = await showConfirm({
+                title: 'Apagar todos os documentos',
+                message: 'Tem a certeza que deseja apagar TODOS os seus documentos? Esta ação não pode ser desfeita.',
+                confirmText: 'Apagar tudo',
+                danger: true,
+                icon: '🗑️'
+            });
+            if (!ok) return;
             try {
                 const response = await fetch(`${API_URL}/documents/delete-all`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${currentToken}` } });
                 const data = await response.json();
-                if (data.sucesso) { alert(`✅ ${data.mensagem}`); loadDocuments(); }
-                else { alert(data.erro || 'Erro ao apagar documentos'); }
-            } catch (error) { console.error(error); alert('Erro de conexão'); }
+                if (data.sucesso) { showToast(data.mensagem, 'success'); loadDocuments(); }
+                else showToast(data.erro || 'Erro ao apagar documentos', 'error');
+            } catch (error) { console.error(error); showToast('Erro de conexão', 'error'); }
         });
 
         document.getElementById('deleteAccountBtn').addEventListener('click', async () => {
-            const password = prompt('🔒 Para apagar a sua conta, digite a sua PASSWORD:');
-            if (!password) {
-                alert('Operação cancelada.');
-                return;
-            }
-            
-            const confirmacao = prompt('⚠️ ATENÇÃO! Digite "APAGAR" para confirmar a exclusão permanente da sua conta:');
-            if (confirmacao !== 'APAGAR') { 
-                alert('Operação cancelada.'); 
-                return; 
-            }
-            
-            if (!confirm('Tem certeza absoluta? Todos os seus documentos serão apagados permanentemente.')) return;
-            
+            const result = await showPromptForm({
+                title: 'Apagar conta permanentemente',
+                message: 'Esta ação é irreversível. Todos os seus documentos e links de partilha serão apagados definitivamente.',
+                icon: '⚠️',
+                danger: true,
+                confirmText: 'Apagar conta',
+                fields: [
+                    {
+                        id: 'password',
+                        label: 'A sua password',
+                        type: 'password',
+                        validate: (v) => !v ? 'Introduza a sua password' : null
+                    },
+                    {
+                        id: 'confirmText',
+                        label: 'Escreva APAGAR para confirmar',
+                        placeholder: 'APAGAR',
+                        validate: (v) => v.trim().toUpperCase() !== 'APAGAR' ? 'Escreva exatamente "APAGAR"' : null
+                    }
+                ]
+            });
+            if (!result) return;
+
             try {
-                const response = await fetch(`${API_URL}/user/delete`, { 
-                    method: 'DELETE', 
-                    headers: { 
+                const response = await fetch(`${API_URL}/user/delete`, {
+                    method: 'DELETE',
+                    headers: {
                         'Authorization': `Bearer ${currentToken}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ password: password })
+                    body: JSON.stringify({ password: result.password })
                 });
                 const data = await response.json();
                 if (data.sucesso) {
-                    alert('✅ Conta apagada com sucesso.');
+                    showToast('Conta apagada com sucesso', 'success');
                     localStorage.removeItem('token');
                     localStorage.removeItem('userEmail');
                     localStorage.removeItem('userId');
-                    window.location.href = '/login.html';
-                } else { 
-                    alert(data.erro || 'Erro ao apagar conta'); 
+                    setTimeout(() => { window.location.href = '/login.html'; }, 1200);
+                } else {
+                    showToast(data.erro || 'Erro ao apagar conta', 'error');
                 }
-            } catch (error) { 
-                console.error(error); 
-                alert('Erro de conexão'); 
+            } catch (error) {
+                console.error(error);
+                showToast('Erro de conexão', 'error');
             }
         });
 
@@ -1640,13 +2056,13 @@
             try {
                 const response = await fetch(`${API_URL}/documents`, { headers: { 'Authorization': `Bearer ${currentToken}` } });
                 const data = await response.json();
-                if (data.documentos && data.documentos.length > 0) { 
-                    allDocuments = data.documentos; 
+                if (data.documentos && data.documentos.length > 0) {
+                    allDocuments = data.documentos;
                     allDocuments = allDocuments.map(doc => ({
                         ...doc,
                         file_type: detectFileType(doc.original_name)
                     }));
-                    filterAndRenderDocuments(); 
+                    filterAndRenderDocuments();
                 }
                 else { allDocuments = []; documentsList.innerHTML = '<div class="empty-state">📭 Nenhum documento. Faça upload do seu primeiro arquivo.</div>'; updateStats([]); updateTagFilter([]); }
             } catch (error) { console.error(error); documentsList.innerHTML = '<div class="empty-state">❌ Erro ao carregar documentos</div>'; }
@@ -1669,18 +2085,18 @@
                             <div class="document-content">
                                 <div class="document-title-row">
                                     <div class="document-icon">${getFileIcon(doc.file_type)}</div>
-                                    <button class="favorite-star ${doc.favorite === 1 ? 'active' : ''}" onclick="toggleFavorite(${doc.id}, ${doc.favorite === 1})">★</button>
+                                    <button class="favorite-star ${doc.favorite === 1 ? 'active' : ''}" data-action="favorite" data-id="${doc.id}" data-current="${doc.favorite === 1}">★</button>
                                 </div>
                                 <div class="document-name">${escapeHtml(doc.original_name)}</div>
-                                <div class="document-meta">${formatDate(doc.uploaded_at || doc.created_at)} • ${formatSize(doc.file_size)}</div>
-                                <div class="document-tags">${doc.tags && doc.tags.length ? doc.tags.map(tag => `<span class="tag" onclick="filterByTag('${escapeHtml(tag)}')">#${escapeHtml(tag)}</span>`).join('') : '<span class="no-tags">Sem tags</span>'}</div>
+                                <div class="document-meta">${formatDate(doc.created_at)} • ${formatSize(doc.file_size)}</div>
+                                <div class="document-tags">${doc.tags && doc.tags.length ? doc.tags.map(tag => `<span class="tag" data-action="filter-tag" data-tag="${escapeHtml(tag)}">#${escapeHtml(tag)}</span>`).join('') : '<span class="no-tags">Sem tags</span>'}</div>
                                 <div class="document-actions">
-                                    <button class="btn-rename" onclick="renameDocument(${doc.id}, '${escapeHtml(doc.original_name)}')">✏️ Renomear</button>
-                                    <button class="btn-tag" onclick="editTags(${doc.id}, ${JSON.stringify(doc.tags || [])})">🏷️ Tags</button>
-                                    <button class="btn-share" onclick="shareDocument(${doc.id})">🔗 Partilhar</button>
-                                    <button class="btn-view" onclick="viewDocument(${doc.id}, '${escapeHtml(doc.original_name)}')">👁️ Ver</button>
-                                    <button class="btn-download" onclick="downloadDocument(${doc.id})">⬇️ Baixar</button>
-                                    <button class="btn-delete" onclick="deleteDocument(${doc.id})">🗑️ Apagar</button>
+                                    <button class="btn-rename" data-action="rename" data-id="${doc.id}">✏️ Renomear</button>
+                                    <button class="btn-tag" data-action="edit-tags" data-id="${doc.id}">🏷️ Tags</button>
+                                    <button class="btn-share" data-action="share" data-id="${doc.id}">🔗 Partilhar</button>
+                                    <button class="btn-view" data-action="view" data-id="${doc.id}">👁️ Ver</button>
+                                    <button class="btn-download" data-action="download" data-id="${doc.id}">⬇️ Baixar</button>
+                                    <button class="btn-delete" data-action="delete" data-id="${doc.id}">🗑️ Apagar</button>
                                 </div>
                             </div>
                         </div>
@@ -1694,19 +2110,19 @@
                     ${docs.map(doc => `
                         <div class="list-item">
                             <div class="list-col"><input type="checkbox" class="list-checkbox doc-checkbox" data-id="${doc.id}" ${selectedDocuments.has(doc.id) ? 'checked' : ''}></div>
-                            <div class="list-col"><button class="list-fav-btn ${doc.favorite === 1 ? 'active' : ''}" onclick="toggleFavorite(${doc.id}, ${doc.favorite === 1})">★</button></div>
+                            <div class="list-col"><button class="list-fav-btn ${doc.favorite === 1 ? 'active' : ''}" data-action="favorite" data-id="${doc.id}" data-current="${doc.favorite === 1}">★</button></div>
                             <div class="list-col"><span class="list-icon">${getFileIcon(doc.file_type)}</span><span class="list-name" title="${escapeHtml(doc.original_name)}">${escapeHtml(doc.original_name)}</span></div>
                             <div class="list-col">${doc.file_type.toUpperCase()}</div>
-                            <div class="list-col">${formatDate(doc.uploaded_at)}</div>
+                            <div class="list-col">${formatDate(doc.created_at)}</div>
                             <div class="list-col">${formatSize(doc.file_size)}</div>
-                            <div class="list-col list-col-tags">${doc.tags && doc.tags.length ? doc.tags.map(tag => `<span class="tag-small" onclick="filterByTag('${escapeHtml(tag)}')">#${escapeHtml(tag)}</span>`).join('') : '-'}</div>
+                            <div class="list-col list-col-tags">${doc.tags && doc.tags.length ? doc.tags.map(tag => `<span class="tag-small" data-action="filter-tag" data-tag="${escapeHtml(tag)}">#${escapeHtml(tag)}</span>`).join('') : '-'}</div>
                             <div class="list-col">
-                                <button class="btn-rename-small" onclick="renameDocument(${doc.id}, '${escapeHtml(doc.original_name)}')" title="Renomear">✏️</button>
-                                <button class="btn-tag-small" onclick="editTags(${doc.id}, ${JSON.stringify(doc.tags || [])})" title="Editar tags">🏷️</button>
-                                <button class="btn-share-small" onclick="shareDocument(${doc.id})" title="Partilhar">🔗</button>
-                                <button class="btn-view-small" onclick="viewDocument(${doc.id}, '${escapeHtml(doc.original_name)}')" title="Ver">👁️</button>
-                                <button class="btn-download-small" onclick="downloadDocument(${doc.id})" title="Baixar">⬇️</button>
-                                <button class="btn-delete-small" onclick="deleteDocument(${doc.id})" title="Apagar">🗑️</button>
+                                <button class="btn-rename-small" data-action="rename" data-id="${doc.id}" title="Renomear">✏️</button>
+                                <button class="btn-tag-small" data-action="edit-tags" data-id="${doc.id}" title="Editar tags">🏷️</button>
+                                <button class="btn-share-small" data-action="share" data-id="${doc.id}" title="Partilhar">🔗</button>
+                                <button class="btn-view-small" data-action="view" data-id="${doc.id}" title="Ver">👁️</button>
+                                <button class="btn-download-small" data-action="download" data-id="${doc.id}" title="Baixar">⬇️</button>
+                                <button class="btn-delete-small" data-action="delete" data-id="${doc.id}" title="Apagar">🗑️</button>
                             </div>
                         </div>
                     `).join('')}
@@ -1718,109 +2134,158 @@
             document.querySelectorAll('.document-checkbox').forEach(cb => { cb.onchange = (e) => { const id = parseInt(e.target.dataset.id); toggleDocumentSelection(id); }; });
         }
 
-       function formatDate(dateStr) {
-    if (!dateStr) return 'Data inválida';
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return 'Data inválida';
-    return date.toLocaleDateString('pt-PT') + ' ' + date.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
-}
+        // Event delegation central para todas as ações dos documentos.
+        // Nenhum dado dinâmico é injetado em atributos onclick — resolve
+        // definitivamente o bug de botões quebrados com nomes/tags que
+        // contêm aspas.
+        documentsList.addEventListener('click', (e) => {
+            const actionEl = e.target.closest('[data-action]');
+            if (!actionEl) return;
+            const action = actionEl.dataset.action;
+            const id = parseInt(actionEl.dataset.id, 10);
+            const doc = allDocuments.find(d => d.id === id);
+
+            switch (action) {
+                case 'favorite':
+                    toggleFavorite(id, actionEl.dataset.current === 'true');
+                    break;
+                case 'rename':
+                    if (doc) renameDocument(id, doc.original_name);
+                    break;
+                case 'edit-tags':
+                    if (doc) editTags(id, doc.tags || []);
+                    break;
+                case 'share':
+                    shareDocument(id);
+                    break;
+                case 'view':
+                    if (doc) viewDocument(id, doc.original_name);
+                    break;
+                case 'download':
+                    downloadDocument(id);
+                    break;
+                case 'delete':
+                    deleteDocument(id);
+                    break;
+                case 'filter-tag':
+                    filterByTag(actionEl.dataset.tag);
+                    break;
+            }
+        });
+
+        function formatDate(dateStr) {
+            if (!dateStr) return 'Data inválida';
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return 'Data inválida';
+            return date.toLocaleDateString('pt-PT') + ' ' + date.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+        }
         function formatSize(bytes) { if (bytes < 1024) return bytes + ' B'; if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'; return (bytes / (1024 * 1024)).toFixed(1) + ' MB'; }
         function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
 
-window.viewDocument = async (id, name) => {
-    modalTitle.textContent = name;
-    const fileType = name.split('.').pop().toLowerCase();
-    
-    // Buscar a URL pública diretamente do servidor
-    try {
-        const response = await fetch(`${API_URL}/view/${id}?token=${currentToken}`);
-        const fileUrl = response.url; // URL final após redirecionamento
-        
-        viewerFrame.innerHTML = '';
-        
-        if (fileType === 'pdf') {
-            viewerFrame.innerHTML = `<embed src="${fileUrl}" type="application/pdf" width="100%" height="100%">`;
-        }
-        else if (['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'].includes(fileType)) {
-            // Google Docs Viewer - usa URL limpa (sem token)
-            const googleViewer = `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(fileUrl)}`;
-            viewerFrame.innerHTML = `<iframe src="${googleViewer}" frameborder="0" style="width:100%; height:100%;"></iframe>`;
-        }
-        else if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp'].includes(fileType)) {
-            viewerFrame.innerHTML = `<img src="${fileUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain; display: block; margin: auto;">`;
-        }
-        else if (['mp3', 'wav', 'ogg', 'flac', 'm4a'].includes(fileType)) {
-            viewerFrame.innerHTML = `<audio controls style="width: 100%; margin-top: 20%;"><source src="${fileUrl}" type="audio/${fileType}">Seu navegador não suporta áudio</audio>`;
-        }
-        else if (['mp4', 'webm', 'avi', 'mkv', 'mov'].includes(fileType)) {
-            viewerFrame.innerHTML = `<video controls style="width: 100%; max-height: 100%;"><source src="${fileUrl}" type="video/${fileType}">Seu navegador não suporta vídeo</video>`;
-        }
-        else {
-            // Código e textos
-            fetch(fileUrl)
-                .then(res => res.text())
-                .then(text => {
-                    viewerFrame.innerHTML = `<pre style="padding: 20px; background: #1e1e1e; color: #d4d4d4; font-family: monospace; font-size: 14px; white-space: pre-wrap; word-wrap: break-word; height: 100%; overflow: auto; margin: 0;">${escapeHtml(text)}</pre>`;
-                })
-                .catch(() => {
-                    viewerFrame.innerHTML = `<iframe src="${fileUrl}" frameborder="0" style="width:100%; height:100%;"></iframe>`;
-                });
-        }
-        
-        viewModal.style.display = 'flex';
-    } catch (error) {
-        console.error('Erro:', error);
-        alert('Erro ao abrir o documento');
-    }
-};
-        
-       window.downloadDocument = async (id) => {
-    try {
-        const response = await fetch(`${API_URL}/download/${id}?token=${currentToken}`);
-        const blob = await response.blob();
-        
-        // Extrair nome do arquivo do header Content-Disposition
-        const contentDisposition = response.headers.get('Content-Disposition');
-        let filename = 'documento';
-        
-        if (contentDisposition) {
-            // Tentar extrair filename* (UTF-8) primeiro
-            const matchStar = contentDisposition.match(/filename\*=UTF-8''([^;]+)/);
-            if (matchStar && matchStar[1]) {
-                filename = decodeURIComponent(matchStar[1]);
-            } else {
-                // Fallback para filename normal
-                const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-                if (match && match[1]) {
-                    filename = match[1].replace(/['"]/g, '');
-                    filename = decodeURIComponent(filename);
+        async function viewDocument(id, name) {
+            modalTitle.textContent = name;
+            const fileType = name.split('.').pop().toLowerCase();
+
+            try {
+                const response = await fetch(`${API_URL}/view/${id}?token=${currentToken}`);
+                const fileUrl = response.url;
+
+                viewerFrame.innerHTML = '';
+
+                if (fileType === 'pdf') {
+                    viewerFrame.innerHTML = `<embed src="${fileUrl}" type="application/pdf" width="100%" height="100%">`;
                 }
+                else if (['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'].includes(fileType)) {
+                    const googleViewer = `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(fileUrl)}`;
+                    viewerFrame.innerHTML = `<iframe src="${googleViewer}" frameborder="0" style="width:100%; height:100%;"></iframe>`;
+                }
+                else if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp'].includes(fileType)) {
+                    viewerFrame.innerHTML = `<img src="${fileUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain; display: block; margin: auto;">`;
+                }
+                else if (['mp3', 'wav', 'ogg', 'flac', 'm4a'].includes(fileType)) {
+                    viewerFrame.innerHTML = `<audio controls style="width: 100%; margin-top: 20%;"><source src="${fileUrl}" type="audio/${fileType}">Seu navegador não suporta áudio</audio>`;
+                }
+                else if (['mp4', 'webm', 'avi', 'mkv', 'mov'].includes(fileType)) {
+                    viewerFrame.innerHTML = `<video controls style="width: 100%; max-height: 100%;"><source src="${fileUrl}" type="video/${fileType}">Seu navegador não suporta vídeo</video>`;
+                }
+                else {
+                    fetch(fileUrl)
+                        .then(res => res.text())
+                        .then(text => {
+                            viewerFrame.innerHTML = `<pre style="padding: 20px; background: #1e1e1e; color: #d4d4d4; font-family: monospace; font-size: 14px; white-space: pre-wrap; word-wrap: break-word; height: 100%; overflow: auto; margin: 0;">${escapeHtml(text)}</pre>`;
+                        })
+                        .catch(() => {
+                            viewerFrame.innerHTML = `<iframe src="${fileUrl}" frameborder="0" style="width:100%; height:100%;"></iframe>`;
+                        });
+                }
+
+                viewModal.style.display = 'flex';
+            } catch (error) {
+                console.error('Erro:', error);
+                showToast('Erro ao abrir o documento', 'error');
             }
         }
-        
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-    } catch (error) {
-        console.error('Erro no download:', error);
-        alert('Erro ao baixar o documento');
-    }
-};
-        
-        window.deleteDocument = async (id) => {
-            if (!confirm('Tem certeza que deseja apagar este documento?')) return;
+
+        async function downloadDocument(id) {
+            try {
+                const response = await fetch(`${API_URL}/download/${id}?token=${currentToken}`);
+                if (!response.ok) {
+                    showToast('Erro ao baixar o documento', 'error');
+                    return;
+                }
+                const blob = await response.blob();
+
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'documento';
+
+                if (contentDisposition) {
+                    const matchStar = contentDisposition.match(/filename\*=UTF-8''([^;]+)/);
+                    if (matchStar && matchStar[1]) {
+                        filename = decodeURIComponent(matchStar[1]);
+                    } else {
+                        const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                        if (match && match[1]) {
+                            filename = match[1].replace(/['"]/g, '');
+                            filename = decodeURIComponent(filename);
+                        }
+                    }
+                }
+
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Erro no download:', error);
+                showToast('Erro ao baixar o documento', 'error');
+            }
+        }
+
+        async function deleteDocument(id) {
+            const ok = await showConfirm({
+                title: 'Apagar documento',
+                message: 'Tem a certeza que deseja apagar este documento? Esta ação não pode ser desfeita.',
+                confirmText: 'Apagar',
+                danger: true,
+                icon: '🗑️'
+            });
+            if (!ok) return;
             try {
                 const response = await fetch(`${API_URL}/documents/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${currentToken}` } });
                 const data = await response.json();
-                if (data.sucesso) { if (selectedDocuments.has(id)) selectedDocuments.delete(id); updateBulkActions(); loadDocuments(); }
-                else { alert(data.erro || 'Erro ao apagar'); }
-            } catch (error) { console.error(error); alert('Erro de conexão'); }
-        };
+                if (data.sucesso) {
+                    if (selectedDocuments.has(id)) selectedDocuments.delete(id);
+                    updateBulkActions();
+                    showToast('Documento apagado com sucesso', 'success');
+                    loadDocuments();
+                }
+                else { showToast(data.erro || 'Erro ao apagar', 'error'); }
+            } catch (error) { console.error(error); showToast('Erro de conexão', 'error'); }
+        }
 
         closeModal.addEventListener('click', () => { viewModal.style.display = 'none'; viewerFrame.innerHTML = ''; });
         window.addEventListener('click', (e) => { if (e.target === viewModal) { viewModal.style.display = 'none'; viewerFrame.innerHTML = ''; } });
@@ -1835,7 +2300,7 @@ window.viewDocument = async (id, name) => {
 
         if (closeShareModalBtn1) closeShareModalBtn1.onclick = () => shareModalElem.style.display = 'none';
         if (closeShareModalBtn2) closeShareModalBtn2.onclick = () => shareModalElem.style.display = 'none';
-        window.onclick = (e) => { if (e.target === shareModalElem) shareModalElem.style.display = 'none'; };
+        window.addEventListener('click', (e) => { if (e.target === shareModalElem) shareModalElem.style.display = 'none'; });
 
         if (copyShareLinkBtnElem) {
             copyShareLinkBtnElem.onclick = async () => {
@@ -1854,15 +2319,25 @@ window.viewDocument = async (id, name) => {
             };
         }
 
-        // Função de partilha
-        window.shareDocument = async (id) => {
-            const days = prompt('🔗 Por quantos dias o link deve ser válido? (1-30)', '7');
-            if (!days) return;
-            const expires_days = parseInt(days);
-            if (expires_days < 1 || expires_days > 30) {
-                alert('Por favor, insira um valor entre 1 e 30 dias.');
-                return;
-            }
+        async function shareDocument(id) {
+            const result = await showPromptForm({
+                title: 'Criar link de partilha',
+                icon: '🔗',
+                confirmText: 'Gerar link',
+                fields: [{
+                    id: 'days',
+                    label: 'Válido por quantos dias? (1-30)',
+                    type: 'number',
+                    value: '7',
+                    validate: (v) => {
+                        const n = parseInt(v, 10);
+                        if (!v || isNaN(n) || n < 1 || n > 30) return 'Insira um valor entre 1 e 30';
+                        return null;
+                    }
+                }]
+            });
+            if (!result) return;
+            const expires_days = parseInt(result.days, 10);
             try {
                 const response = await fetch(`${API_URL}/documents/${id}/share`, {
                     method: 'POST',
@@ -1876,13 +2351,13 @@ window.viewDocument = async (id, name) => {
                     shareLinkInputElem.value = data.url;
                     shareModalElem.style.display = 'flex';
                 } else {
-                    alert(data.erro || 'Erro ao gerar link');
+                    showToast(data.erro || 'Erro ao gerar link', 'error');
                 }
             } catch (error) {
                 console.error(error);
-                alert('Erro de conexão');
+                showToast('Erro de conexão', 'error');
             }
-        };
+        }
 
         // ==================== ALTERAR PASSWORD ====================
         const changePasswordBtn = document.getElementById('changePasswordBtn');
@@ -1931,7 +2406,8 @@ window.viewDocument = async (id, name) => {
                 const data = await response.json();
                 if (data.sucesso) {
                     showPasswordMessage('✅ Password alterada com sucesso!', 'success');
-                    setTimeout(() => { passwordModal.style.display = 'none'; }, 2000);
+                    showToast('Password alterada com sucesso', 'success');
+                    setTimeout(() => { passwordModal.style.display = 'none'; }, 1500);
                 } else { showPasswordMessage(data.erro || 'Erro ao alterar password', 'error'); }
             } catch (error) { console.error(error); showPasswordMessage('Erro de conexão', 'error'); }
         });
