@@ -9,7 +9,21 @@ const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const SECRET_KEY = process.env.SECRET_KEY || 'documentos_secret_key_2024';
+
+// ============================================
+// SECRET KEY - obrigatório vir do ambiente
+// ============================================
+// ANTES: havia um fallback fixo no código ('documentos_secret_key_2024').
+// Isso é uma falha de segurança grave: se a variável de ambiente falhar
+// por qualquer motivo, o servidor arrancava com uma chave pública e
+// previsível, permitindo forjar tokens JWT de qualquer utilizador.
+// Agora, tal como acontece com o Supabase, o servidor recusa-se a arrancar
+// sem SECRET_KEY definida.
+const SECRET_KEY = process.env.SECRET_KEY;
+if (!SECRET_KEY) {
+    console.error('❌ Erro: SECRET_KEY é obrigatória! Defina-a nas variáveis de ambiente.');
+    process.exit(1);
+}
 
 // ============================================
 // CONFIGURAÇÃO SUPABASE
@@ -24,11 +38,79 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// ============================================
+// CORS
+// ============================================
+// ANTES: cors() sem opções liberta a API a partir de qualquer origem.
+// Agora aceita uma lista de origens em ALLOWED_ORIGINS (separadas por
+// vírgula). Se não for definida, mantém-se aberto (para não partir o
+// deploy atual), mas com um aviso no arranque para lembrar de configurar.
+const allowedOriginsEnv = process.env.ALLOWED_ORIGINS;
+const allowedOrigins = allowedOriginsEnv
+    ? allowedOriginsEnv.split(',').map(o => o.trim()).filter(Boolean)
+    : null;
+
+if (!allowedOrigins) {
+    console.warn('⚠️  ALLOWED_ORIGINS não definida — CORS está aberto a qualquer origem. Defina ALLOWED_ORIGINS=https://seudominio.com em produção.');
+}
+
+const corsOptions = allowedOrigins
+    ? {
+        origin: (origin, callback) => {
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error('Origem não permitida por CORS'));
+            }
+        }
+    }
+    : {};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ============================================
+// RATE LIMITING BÁSICO (login / registo)
+// ============================================
+// Limitador simples em memória, sem dependências extra. Bloqueia por IP+rota
+// após demasiadas tentativas num curto intervalo. Para produção com múltiplas
+// instâncias, considere trocar por um limitador com Redis (ex: rate-limit-redis).
+const rateLimitBuckets = new Map();
+
+function rateLimit({ windowMs = 15 * 60 * 1000, max = 10 } = {}) {
+    return (req, res, next) => {
+        const key = `${req.path}:${req.ip}`;
+        const now = Date.now();
+        const bucket = rateLimitBuckets.get(key) || { count: 0, resetAt: now + windowMs };
+
+        if (now > bucket.resetAt) {
+            bucket.count = 0;
+            bucket.resetAt = now + windowMs;
+        }
+
+        bucket.count += 1;
+        rateLimitBuckets.set(key, bucket);
+
+        if (bucket.count > max) {
+            const retryAfterSec = Math.ceil((bucket.resetAt - now) / 1000);
+            res.setHeader('Retry-After', retryAfterSec);
+            return res.status(429).json({ erro: 'Demasiadas tentativas. Tente novamente mais tarde.' });
+        }
+
+        next();
+    };
+}
+
+// Limpeza periódica do mapa para não crescer indefinidamente
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, bucket] of rateLimitBuckets.entries()) {
+        if (now > bucket.resetAt) rateLimitBuckets.delete(key);
+    }
+}, 30 * 60 * 1000).unref();
 
 // ============================================
 // CONFIGURAÇÃO MULTER (Uma única vez)
@@ -53,7 +135,7 @@ const ALLOWED_EXTENSIONS = [
     // Design
     'psd', 'ai', 'eps', 'cdr', 'dwg', 'dxf', 'skp',
     // Engenharia / Eletrónica
-    'circ', 'pcb', 'sch', 'brd', 'gerber', 'gbr','pwb',
+    'circ', 'pcb', 'sch', 'brd', 'gerber', 'gbr', 'pwb',
     // CAD / Desenho Técnico
     'stp', 'step', 'iges', 'igs',
     // Modelagem 3D
@@ -62,7 +144,7 @@ const ALLOWED_EXTENSIONS = [
     'kicad_pcb', 'kicad_sch',
     // Visio / Diagramas
     'odg', 'vsd',
-    //matlab
+    // Matlab
     'm', 'mlx'
 ];
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
@@ -79,6 +161,38 @@ const upload = multer({
         }
     }
 }).single('documento');
+
+// ============================================
+// VERIFICAÇÃO DE ASSINATURA DE FICHEIRO (magic bytes)
+// ============================================
+// A validação anterior confiava apenas na extensão do nome do ficheiro,
+// que é trivial de falsificar (ex: renomear um .exe para .pdf). Isto não
+// substitui uma verificação completa por tipo, mas bloqueia o caso mais
+// perigoso: executáveis disfarçados de outro tipo de ficheiro.
+const DANGEROUS_SIGNATURES = [
+    { name: 'Windows executável (MZ)', bytes: [0x4d, 0x5a] },
+    { name: 'Linux ELF', bytes: [0x7f, 0x45, 0x4c, 0x46] },
+    { name: 'Mach-O (macOS)', bytes: [0xcf, 0xfa, 0xed, 0xfe] },
+    { name: 'Mach-O (macOS)', bytes: [0xfe, 0xed, 0xfa, 0xce] },
+];
+
+// Extensões onde um executável escondido lá dentro seria especialmente perigoso
+const EXTENSIONS_TO_SNIFF = new Set([
+    'pdf', 'doc', 'docx', 'ppt', 'pptx', 'txt', 'md', 'rtf', 'odt',
+    'jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico',
+    'xls', 'xlsx', 'ods', 'csv', 'mp3', 'wav', 'mp4', 'mov'
+]);
+
+function looksLikeDisguisedExecutable(buffer, ext) {
+    if (!EXTENSIONS_TO_SNIFF.has(ext)) return null;
+    for (const sig of DANGEROUS_SIGNATURES) {
+        if (buffer.length >= sig.bytes.length) {
+            const matches = sig.bytes.every((b, i) => buffer[i] === b);
+            if (matches) return sig.name;
+        }
+    }
+    return null;
+}
 
 // ============================================
 // FUNÇÕES AUXILIARES
@@ -101,7 +215,7 @@ function isValidEmail(email) {
 // Função para detectar o tipo do arquivo pela extensão
 function detectFileType(filename) {
     const ext = filename.split('.').pop().toLowerCase();
-    
+
     if (['pdf'].includes(ext)) return 'pdf';
     if (['doc', 'docx'].includes(ext)) return 'word';
     if (['ppt', 'pptx'].includes(ext)) return 'powerpoint';
@@ -114,18 +228,18 @@ function detectFileType(filename) {
     if (['epub', 'mobi', 'azw', 'azw3'].includes(ext)) return 'ebook';
     if (['psd', 'ai', 'eps', 'cdr', 'dwg', 'dxf', 'skp'].includes(ext)) return 'design';
     if (['txt', 'md', 'rtf', 'odt'].includes(ext)) return 'text';
-    
+
     return 'outro';
 }
 
 // Middleware de autenticação
 const authenticate = async (req, res, next) => {
     let token = req.headers.authorization?.split(' ')[1];
-    
+
     if (!token && req.query.token) {
         token = req.query.token;
     }
-    
+
     if (!token) {
         return res.status(401).json({ erro: 'Token não fornecido' });
     }
@@ -144,12 +258,18 @@ const authenticate = async (req, res, next) => {
 // ROTAS DE AUTENTICAÇÃO
 // ============================================
 
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', rateLimit({ windowMs: 15 * 60 * 1000, max: 10 }), async (req, res) => {
     const { email, password } = req.body;
     console.log('📝 Tentando registrar:', email);
 
     if (!email || !password) {
         return res.status(400).json({ erro: 'Email e password são obrigatórios' });
+    }
+
+    // ANTES: isValidEmail() existia mas nunca era chamada aqui, então
+    // qualquer texto sem "@" era aceite como email válido.
+    if (!isValidEmail(email)) {
+        return res.status(400).json({ erro: 'Email inválido' });
     }
 
     if (password.length < 6) {
@@ -158,7 +278,7 @@ app.post('/api/register', async (req, res) => {
 
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        
+
         const { data, error } = await supabase
             .from('usuarios')
             .insert([{ email: email.toLowerCase(), password: hashedPassword }])
@@ -166,21 +286,26 @@ app.post('/api/register', async (req, res) => {
             .single();
 
         if (error) {
-            // ESTA LINHA É IMPORTANTE - MOSTRA O ERRO REAL
             console.error('❌ ERRO DETALHADO DO SUPABASE:', JSON.stringify(error, null, 2));
-            return res.status(400).json({ erro: `Erro: ${error.message}` });
+            // Não expor mensagem crua do Supabase ao cliente (pode revelar
+            // detalhes de esquema). Mensagem genérica + log completo no servidor.
+            if (error.code === '23505') {
+                return res.status(409).json({ erro: 'Este email já está registado' });
+            }
+            return res.status(400).json({ erro: 'Não foi possível concluir o registo' });
         }
-        
+
         console.log('✅ Usuário criado:', data.id);
         const token = jwt.sign({ userId: data.id, email }, SECRET_KEY, { expiresIn: '7d' });
         res.json({ sucesso: true, token, userId: data.id, email });
     } catch (error) {
         console.error('❌ ERRO GERAL:', error);
-        res.status(500).json({ erro: `Erro: ${error.message}` });
+        res.status(500).json({ erro: 'Erro ao registar' });
     }
 });
+
 // Login
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', rateLimit({ windowMs: 15 * 60 * 1000, max: 15 }), async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -204,16 +329,16 @@ app.post('/api/login', async (req, res) => {
         }
 
         const token = jwt.sign(
-            { userId: user.id, email: user.email }, 
-            SECRET_KEY, 
+            { userId: user.id, email: user.email },
+            SECRET_KEY,
             { expiresIn: '7d' }
         );
 
-        res.json({ 
-            sucesso: true, 
-            token, 
-            userId: user.id, 
-            email: user.email 
+        res.json({
+            sucesso: true,
+            token,
+            userId: user.id,
+            email: user.email
         });
     } catch (error) {
         console.error('Erro ao fazer login:', error);
@@ -231,7 +356,7 @@ app.post('/api/upload', authenticate, (req, res) => {
         if (err) {
             return res.status(400).json({ erro: err.message });
         }
-        
+
         if (!req.file) {
             return res.status(400).json({ erro: 'Nenhum ficheiro enviado' });
         }
@@ -239,32 +364,36 @@ app.post('/api/upload', authenticate, (req, res) => {
         const file = req.file;
         let originalName = fixEncoding(file.originalname);
         let tags = [];
-        
-        // Limitar comprimento do nome
+
         if (originalName.length > 255) {
             originalName = originalName.substring(0, 255);
         }
-        
+
         if (req.body.tags) {
             try {
                 tags = JSON.parse(req.body.tags);
                 if (!Array.isArray(tags)) tags = [];
-                if (tags.length > 50) tags = tags.slice(0, 50); // Máx 50 tags
+                if (tags.length > 50) tags = tags.slice(0, 50);
             } catch (e) {
                 tags = [];
             }
         }
-        
-        // Detectar o tipo do arquivo
+
         const fileType = detectFileType(originalName);
-        
-        // Gerar nome único para o arquivo no Storage
-        const ext = path.extname(originalName).toLowerCase();
-        const uniqueFileName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${ext}`;
+        const ext = path.extname(originalName).toLowerCase().substring(1);
+
+        // Verificação de assinatura contra executáveis disfarçados
+        const disguised = looksLikeDisguisedExecutable(file.buffer, ext);
+        if (disguised) {
+            console.warn(`⚠️ Upload bloqueado: ficheiro "${originalName}" parece ser um ${disguised} disfarçado de .${ext}`);
+            return res.status(400).json({ erro: 'O conteúdo do ficheiro não corresponde à extensão indicada.' });
+        }
+
+        const uniqueExt = path.extname(originalName).toLowerCase();
+        const uniqueFileName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${uniqueExt}`;
         const filePath = `user_${req.userId}/${uniqueFileName}`;
 
         try {
-            // Upload para Supabase Storage
             const { error: uploadError } = await supabase.storage
                 .from('documentos')
                 .upload(filePath, file.buffer, {
@@ -277,14 +406,12 @@ app.post('/api/upload', authenticate, (req, res) => {
                 return res.status(500).json({ erro: 'Erro ao fazer upload do ficheiro' });
             }
 
-            // Obter URL pública
             const { data: urlData } = supabase.storage
                 .from('documentos')
                 .getPublicUrl(filePath);
 
             const fileUrl = urlData.publicUrl;
 
-            // Salvar no banco de dados
             const { data: docData, error: dbError } = await supabase
                 .from('documentos')
                 .insert([{
@@ -306,8 +433,11 @@ app.post('/api/upload', authenticate, (req, res) => {
                 return res.status(500).json({ erro: 'Erro ao guardar documento' });
             }
 
-            res.status(201).json({ 
-                sucesso: true, 
+            // NOTA: chave normalizada para "created_at" (antes era "uploaded_at"),
+            // para bater certo com o que /api/documents devolve e a ordenação
+            // por data no frontend deixar de quebrar para documentos antigos.
+            res.status(201).json({
+                sucesso: true,
                 documento: {
                     id: docData.id,
                     filename: uniqueFileName,
@@ -316,7 +446,7 @@ app.post('/api/upload', authenticate, (req, res) => {
                     file_size: file.size,
                     tags: tags,
                     favorite: 0,
-                    uploaded_at: docData.created_at || new Date().toISOString()
+                    created_at: docData.created_at || new Date().toISOString()
                 }
             });
         } catch (error) {
@@ -348,7 +478,7 @@ app.get('/api/documents', authenticate, async (req, res) => {
             created_at: doc.created_at,
             file_url: doc.file_url
         }));
-        
+
         res.json({ documentos });
     } catch (error) {
         console.error('Erro ao listar documentos:', error);
@@ -359,7 +489,7 @@ app.get('/api/documents', authenticate, async (req, res) => {
 // Download documento
 app.get('/api/download/:id', authenticate, async (req, res) => {
     const docId = req.params.id;
-    
+
     try {
         const { data: doc, error } = await supabase
             .from('documentos')
@@ -372,7 +502,6 @@ app.get('/api/download/:id', authenticate, async (req, res) => {
             return res.status(404).json({ erro: 'Documento não encontrado' });
         }
 
-        // Buscar o arquivo do Supabase Storage
         const filePath = `user_${req.userId}/${doc.filename}`;
         const { data: fileData, error: downloadError } = await supabase.storage
             .from('documentos')
@@ -383,11 +512,9 @@ app.get('/api/download/:id', authenticate, async (req, res) => {
             return res.status(500).json({ erro: 'Erro ao baixar arquivo' });
         }
 
-        // Extrair a extensão do nome original
         const ext = doc.original_name.split('.').pop().toLowerCase();
         let mimeType = 'application/octet-stream';
-        
-        // Definir o MIME type correto baseado na extensão
+
         if (ext === 'pdf') mimeType = 'application/pdf';
         else if (['doc', 'docx'].includes(ext)) mimeType = 'application/msword';
         else if (['ppt', 'pptx'].includes(ext)) mimeType = 'application/vnd.ms-powerpoint';
@@ -395,23 +522,23 @@ app.get('/api/download/:id', authenticate, async (req, res) => {
         else if (['jpg', 'jpeg'].includes(ext)) mimeType = 'image/jpeg';
         else if (ext === 'png') mimeType = 'image/png';
         else if (ext === 'txt') mimeType = 'text/plain';
-        
-        // Usar formatação RFC 5987 para caracteres especiais
+
         const filename = doc.original_name;
         res.setHeader('Content-Type', mimeType);
         res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
         res.setHeader('Content-Length', fileData.size);
         res.send(Buffer.from(await fileData.arrayBuffer()));
-        
+
     } catch (error) {
         console.error('Erro ao fazer download:', error);
         res.status(500).json({ erro: 'Erro ao fazer download' });
     }
 });
+
 // Visualizar documento
 app.get('/api/view/:id', authenticate, async (req, res) => {
     const docId = req.params.id;
-    
+
     try {
         const { data: doc, error } = await supabase
             .from('documentos')
@@ -434,7 +561,7 @@ app.get('/api/view/:id', authenticate, async (req, res) => {
 // Apagar um documento
 app.delete('/api/documents/:id', authenticate, async (req, res) => {
     const docId = req.params.id;
-    
+
     try {
         const { data: doc, error: findError } = await supabase
             .from('documentos')
@@ -448,8 +575,7 @@ app.delete('/api/documents/:id', authenticate, async (req, res) => {
         }
 
         const filePath = `user_${req.userId}/${doc.filename}`;
-        
-        // Deletar do storage
+
         const { error: storageError } = await supabase.storage
             .from('documentos')
             .remove([filePath]);
@@ -458,7 +584,17 @@ app.delete('/api/documents/:id', authenticate, async (req, res) => {
             console.error('Erro ao deletar do storage:', storageError);
         }
 
-        // Deletar do banco de dados
+        // Apagar também os links de partilha associados a este documento,
+        // para não deixar registos órfãos em share_links.
+        const { error: shareDeleteError } = await supabase
+            .from('share_links')
+            .delete()
+            .eq('document_id', docId);
+
+        if (shareDeleteError) {
+            console.error('Erro ao apagar links de partilha do documento:', shareDeleteError);
+        }
+
         const { error: deleteError } = await supabase
             .from('documentos')
             .delete()
@@ -477,9 +613,8 @@ app.delete('/api/documents/:id', authenticate, async (req, res) => {
 // Apagar todos os documentos do utilizador
 app.delete('/api/documents/delete-all', authenticate, async (req, res) => {
     const userId = req.userId;
-    
+
     try {
-        // Buscar documentos do usuário
         const { data: docs, error: listError } = await supabase
             .from('documentos')
             .select('id, filename')
@@ -491,11 +626,13 @@ app.delete('/api/documents/delete-all', authenticate, async (req, res) => {
             return res.json({ sucesso: true, mensagem: 'Nenhum documento para apagar', count: 0 });
         }
 
-        // Apagar arquivos do Storage
         const filesToDelete = docs.map(doc => `user_${userId}/${doc.filename}`);
         await supabase.storage.from('documentos').remove(filesToDelete);
 
-        // Apagar registros do banco
+        // Apagar links de partilha de todos estes documentos
+        const docIds = docs.map(d => d.id);
+        await supabase.from('share_links').delete().in('document_id', docIds);
+
         const { error: deleteError } = await supabase
             .from('documentos')
             .delete()
@@ -514,18 +651,17 @@ app.delete('/api/documents/delete-all', authenticate, async (req, res) => {
 app.put('/api/documents/:id/rename', authenticate, async (req, res) => {
     const docId = req.params.id;
     const { newName } = req.body;
-    
+
     if (!newName || typeof newName !== 'string' || newName.trim() === '') {
         return res.status(400).json({ erro: 'Nome válido não fornecido' });
     }
-    
+
     let finalName = newName.trim();
     if (finalName.length > 255) {
         finalName = finalName.substring(0, 255);
     }
-    
+
     try {
-        // Verificar se o documento pertence ao utilizador
         const { data: doc, error: findError } = await supabase
             .from('documentos')
             .select('id')
@@ -556,16 +692,14 @@ app.put('/api/documents/:id/rename', authenticate, async (req, res) => {
 app.put('/api/documents/:id/tags', authenticate, async (req, res) => {
     const docId = req.params.id;
     const { tags } = req.body;
-    
+
     if (!Array.isArray(tags)) {
         return res.status(400).json({ erro: 'Tags deve ser um array' });
     }
 
-    // Limitar a 50 tags
     const finalTags = tags.slice(0, 50);
-    
+
     try {
-        // Verificar se o documento pertence ao utilizador
         const { data: doc, error: findError } = await supabase
             .from('documentos')
             .select('id')
@@ -596,13 +730,12 @@ app.put('/api/documents/:id/tags', authenticate, async (req, res) => {
 app.put('/api/documents/:id/favorite', authenticate, async (req, res) => {
     const docId = req.params.id;
     const { favorite } = req.body;
-    
+
     if (typeof favorite !== 'boolean') {
         return res.status(400).json({ erro: 'Favorite deve ser true ou false' });
     }
-    
+
     try {
-        // Verificar se o documento pertence ao utilizador
         const { data: doc, error: findError } = await supabase
             .from('documentos')
             .select('id')
@@ -633,7 +766,6 @@ app.put('/api/documents/:id/favorite', authenticate, async (req, res) => {
 // ROTAS DE PARTILHA
 // ============================================
 
-// Gerar link de partilha
 app.post('/api/documents/:id/share', authenticate, async (req, res) => {
     const docId = req.params.id;
     const { expires_days = 7 } = req.body;
@@ -641,9 +773,8 @@ app.post('/api/documents/:id/share', authenticate, async (req, res) => {
     if (!Number.isInteger(expires_days) || expires_days < 1 || expires_days > 365) {
         return res.status(400).json({ erro: 'Dias de expiração deve estar entre 1 e 365' });
     }
-    
+
     try {
-        // Verificar se o documento pertence ao utilizador
         const { data: doc, error: findError } = await supabase
             .from('documentos')
             .select('id')
@@ -654,11 +785,11 @@ app.post('/api/documents/:id/share', authenticate, async (req, res) => {
         if (findError || !doc) {
             return res.status(404).json({ erro: 'Documento não encontrado' });
         }
-        
+
         const token = crypto.randomBytes(32).toString('hex');
         const expires_at = new Date();
         expires_at.setDate(expires_at.getDate() + expires_days);
-        
+
         const { error } = await supabase
             .from('share_links')
             .insert([{
@@ -670,11 +801,11 @@ app.post('/api/documents/:id/share', authenticate, async (req, res) => {
         if (error) throw error;
 
         const shareUrl = `${req.protocol}://${req.get('host')}/share/${token}`;
-        res.status(201).json({ 
-            sucesso: true, 
-            url: shareUrl, 
-            token, 
-            expires_at 
+        res.status(201).json({
+            sucesso: true,
+            url: shareUrl,
+            token,
+            expires_at
         });
     } catch (error) {
         console.error('Erro ao gerar link de partilha:', error);
@@ -682,12 +813,10 @@ app.post('/api/documents/:id/share', authenticate, async (req, res) => {
     }
 });
 
-// Listar links de partilha de um documento
 app.get('/api/documents/:id/shares', authenticate, async (req, res) => {
     const docId = req.params.id;
-    
+
     try {
-        // Verificar se o documento pertence ao utilizador
         const { data: doc, error: findError } = await supabase
             .from('documentos')
             .select('id')
@@ -714,12 +843,10 @@ app.get('/api/documents/:id/shares', authenticate, async (req, res) => {
     }
 });
 
-// Revogar link de partilha
 app.delete('/api/share/:token', authenticate, async (req, res) => {
     const token = req.params.token;
-    
+
     try {
-        // Verificar se o utilizador é o proprietário do documento
         const { data: shareLink, error: findError } = await supabase
             .from('share_links')
             .select('document_id')
@@ -730,7 +857,6 @@ app.delete('/api/share/:token', authenticate, async (req, res) => {
             return res.status(404).json({ erro: 'Link de partilha não encontrado' });
         }
 
-        // Verificar se o documento pertence ao utilizador
         const { data: doc, error: docError } = await supabase
             .from('documentos')
             .select('id')
@@ -759,7 +885,7 @@ app.delete('/api/share/:token', authenticate, async (req, res) => {
 // Rota pública para acessar documento partilhado
 app.get('/share/:token', async (req, res) => {
     const token = req.params.token;
-    
+
     try {
         const { data, error } = await supabase
             .from('share_links')
@@ -783,23 +909,8 @@ app.get('/share/:token', async (req, res) => {
                     <meta charset="utf-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1">
                     <style>
-                        body { 
-                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                            text-align: center; 
-                            padding: 50px 20px; 
-                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                            min-height: 100vh;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                        }
-                        .container { 
-                            max-width: 500px; 
-                            background: white; 
-                            padding: 40px; 
-                            border-radius: 12px; 
-                            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                        }
+                        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; text-align: center; padding: 50px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+                        .container { max-width: 500px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
                         h1 { color: #dc3545; margin-bottom: 20px; }
                         p { color: #666; line-height: 1.6; }
                     </style>
@@ -815,7 +926,6 @@ app.get('/share/:token', async (req, res) => {
             `);
         }
 
-        // Verificar se o link expirou
         if (new Date(data.expires_at) < new Date()) {
             return res.status(410).send(`
                 <!DOCTYPE html>
@@ -825,23 +935,8 @@ app.get('/share/:token', async (req, res) => {
                     <meta charset="utf-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1">
                     <style>
-                        body { 
-                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                            text-align: center; 
-                            padding: 50px 20px; 
-                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                            min-height: 100vh;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                        }
-                        .container { 
-                            max-width: 500px; 
-                            background: white; 
-                            padding: 40px; 
-                            border-radius: 12px; 
-                            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                        }
+                        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; text-align: center; padding: 50px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+                        .container { max-width: 500px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
                         h1 { color: #dc3545; margin-bottom: 20px; }
                         p { color: #666; line-height: 1.6; }
                     </style>
@@ -869,7 +964,6 @@ app.get('/share/:token', async (req, res) => {
 // ROTAS DE CONTA DE UTILIZADOR
 // ============================================
 
-// Alterar password
 app.put('/api/user/change-password', authenticate, async (req, res) => {
     const { currentPassword, newPassword } = req.body;
     const userId = req.userId;
@@ -918,7 +1012,6 @@ app.put('/api/user/change-password', authenticate, async (req, res) => {
     }
 });
 
-// Obter informações do utilizador
 app.get('/api/user', authenticate, async (req, res) => {
     try {
         const { data: user, error } = await supabase
@@ -931,7 +1024,6 @@ app.get('/api/user', authenticate, async (req, res) => {
             return res.status(404).json({ erro: 'Utilizador não encontrado' });
         }
 
-        // Contar documentos
         const { count, error: countError } = await supabase
             .from('documentos')
             .select('*', { count: 'exact', head: true })
@@ -939,7 +1031,7 @@ app.get('/api/user', authenticate, async (req, res) => {
 
         if (countError) throw countError;
 
-        res.json({ 
+        res.json({
             sucesso: true,
             user: {
                 id: user.id,
@@ -954,7 +1046,6 @@ app.get('/api/user', authenticate, async (req, res) => {
     }
 });
 
-// Apagar conta
 app.delete('/api/user/delete', authenticate, async (req, res) => {
     const userId = req.userId;
     const { password } = req.body;
@@ -962,9 +1053,8 @@ app.delete('/api/user/delete', authenticate, async (req, res) => {
     if (!password) {
         return res.status(400).json({ erro: 'Password obrigatória para confirmar exclusão' });
     }
-    
+
     try {
-        // Verificar password
         const { data: user, error: userError } = await supabase
             .from('usuarios')
             .select('password')
@@ -980,30 +1070,28 @@ app.delete('/api/user/delete', authenticate, async (req, res) => {
             return res.status(401).json({ erro: 'Password incorreta' });
         }
 
-        // Listar documentos
+        // ANTES: buscava só "filename" dos documentos, mas depois tentava
+        // filtrar share_links por "d.id" — que não existia no resultado
+        // (só existia "filename"). Isso fazia com que os links de partilha
+        // nunca fossem apagados ao apagar a conta, ficando órfãos na tabela.
+        // Agora buscamos "id" e "filename" juntos.
         const { data: docs, error: listError } = await supabase
             .from('documentos')
-            .select('filename')
+            .select('id, filename')
             .eq('user_id', userId);
 
         if (listError) throw listError;
 
-        // Deletar ficheiros do storage
         if (docs && docs.length > 0) {
             const filesToDelete = docs.map(doc => `user_${userId}/${doc.filename}`);
             await supabase.storage.from('documentos').remove(filesToDelete);
+
+            const docIds = docs.map(d => d.id);
+            await supabase.from('share_links').delete().in('document_id', docIds);
         }
 
-        // Deletar links de partilha
-        await supabase.from('share_links').delete().in(
-            'document_id',
-            (docs || []).map(d => d.id)
-        );
-
-        // Deletar documentos
         await supabase.from('documentos').delete().eq('user_id', userId);
-        
-        // Deletar utilizador
+
         const { error: deleteError } = await supabase
             .from('usuarios')
             .delete()
@@ -1022,12 +1110,10 @@ app.delete('/api/user/delete', authenticate, async (req, res) => {
 // ROTAS DE TESTE E SAÚDE
 // ============================================
 
-// Rota de teste
 app.get('/api/test', (req, res) => {
     res.json({ status: 'ok', message: 'Servidor funcionando!' });
 });
 
-// Health check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
@@ -1036,12 +1122,10 @@ app.get('/api/health', (req, res) => {
 // TRATAMENTO DE ERROS GLOBAL
 // ============================================
 
-// 404
 app.use((req, res) => {
     res.status(404).json({ erro: 'Rota não encontrada' });
 });
 
-// Erro geral
 app.use((err, req, res, next) => {
     console.error('Erro não tratado:', err);
     res.status(500).json({ erro: 'Erro interno do servidor' });
@@ -1057,7 +1141,6 @@ app.listen(PORT, () => {
     console.log(`✅ Servidor pronto para receber requisições`);
 });
 
-// Tratamento de sinais de encerramento
 process.on('SIGTERM', () => {
     console.log('SIGTERM recebido. Encerrando...');
     process.exit(0);
